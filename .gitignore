@@ -1,0 +1,15 @@
+node_modules
+dist
+.next
+.env
+.env.local
+apps/api/.env
+apps/web/.env.local
+apps/api/uploads/*
+!apps/api/uploads/.gitkeep
+deploy/certbot/conf
+deploy/certbot/www
+backups
+apps/web/public/fonts/*.ttf
+.claude
+*.tsbuildinfo

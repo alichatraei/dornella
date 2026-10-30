@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 800" width="600" height="800">
+  <rect width="600" height="800" fill="#ffffff"/>
+  <rect x="40" y="40" width="520" height="720" rx="24" fill="#FDEEF3"/>
+  <g font-family="sans-serif" fill="#3B2A31">
+    <text x="300" y="140" text-anchor="middle" font-size="30">رسید انتقال وجه</text>
+    <text x="300" y="230" text-anchor="middle" font-size="22">مبلغ: ۶۶۹٬۰۰۰ تومان</text>
+    <text x="300" y="290" text-anchor="middle" font-size="20">به: ۶۰۳۷-۹۹۱۱-۲۲۳۳-۴۴۵۵</text>
+    <text x="300" y="350" text-anchor="middle" font-size="20">کد پیگیری: ۹۸۳۲۱۱</text>
+    <text x="300" y="470" text-anchor="middle" font-size="16" fill="#8B747B">نمونه فیش برای داده‌های آزمایشی</text>
+  </g>
+</svg>

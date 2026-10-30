@@ -1,0 +1,124 @@
+name: CI/CD
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  api:
+    name: API (build + migrations + health)
+    runs-on: ubuntu-latest
+    services:
+      db:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: dornela
+          POSTGRES_PASSWORD: dornela
+          POSTGRES_DB: dornela
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U dornela" --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      DATABASE_URL: postgresql://dornela:dornela@localhost:5432/dornela?schema=public
+      JWT_SECRET: ci-only-secret-ci-only-secret-ci-only
+      ADMIN_PASSWORD: ci-only-password
+      PORT: 4000
+    defaults:
+      run:
+        working-directory: apps/api
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: apps/api/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - run: npx prisma generate
+      - run: npm run build
+      - name: Apply migrations
+        run: npx prisma migrate deploy
+      - name: Schema must match migrations
+        run: npx prisma migrate diff --from-url "$DATABASE_URL" --to-schema-datamodel prisma/schema.prisma --exit-code
+      - name: Start API and check health
+        run: |
+          node dist/main.js > /tmp/api.log 2>&1 &
+          for i in $(seq 1 30); do
+            curl -fsS http://127.0.0.1:4000/api/health && exit 0
+            sleep 2
+          done
+          cat /tmp/api.log
+          exit 1
+
+  web:
+    name: Web (typecheck + build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/web
+    env:
+      NEXT_PUBLIC_SITE_URL: https://example.com
+      NEXT_PUBLIC_API_URL: ""
+      NEXT_TELEMETRY_DISABLED: 1
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - run: npx tsc --noEmit
+      - run: npm run build
+
+  docker:
+    name: Docker images and scripts
+    runs-on: ubuntu-latest
+    env:
+      DOMAIN: example.com
+      POSTGRES_PASSWORD: ci
+      JWT_SECRET: ci
+      ADMIN_PASSWORD: ci
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker compose config --quiet
+      - run: bash -n deploy/init-ssl.sh && bash -n deploy/deploy.sh && bash -n deploy/backup.sh
+      - run: docker compose build api web
+
+  deploy:
+    name: Deploy to server
+    needs: [api, web, docker]
+    # تا وقتی متغیر DEPLOY_ENABLED در تنظیمات ریپو true نشده، دیپلوی رد می‌شود
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && vars.DEPLOY_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+    steps:
+      - name: Prepare SSH
+        env:
+          SSH_KEY: ${{ secrets.SERVER_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.SERVER_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/deploy_key ~/.ssh/known_hosts
+      - name: Run deploy script on server
+        env:
+          HOST: ${{ secrets.SERVER_HOST }}
+          USER_NAME: ${{ secrets.SERVER_USER }}
+          PORT: ${{ secrets.SERVER_PORT || '22' }}
+        run: |
+          ssh -i ~/.ssh/deploy_key -p "$PORT" -o BatchMode=yes -o ConnectTimeout=30 -o ServerAliveInterval=30 \
+            "$USER_NAME@$HOST" "bash /home/dornela/deploy/deploy.sh $GITHUB_SHA"

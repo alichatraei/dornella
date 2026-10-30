@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 1000" width="800" height="1000" role="img">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#F6EFF2"/>
+      <stop offset="100%" stop-color="#FFFBF9"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="1000" fill="url(#bg)"/>
+  <circle cx="170" cy="200" r="120" fill="#ffffff" opacity=".45"/>
+  <circle cx="650" cy="820" r="90" fill="#ffffff" opacity=".35"/>
+  <g transform="translate(0,90) ">
+    
+        <path d="M310 250 L400 220 L490 250 L520 340 L470 360 L470 560 Q400 585 330 560 L330 360 L280 340 Z" fill="#FFFFFF" stroke="#e3e3e3" stroke-width="3"/>
+        <path d="M370 228 Q400 262 430 228" fill="none" stroke="#e3e3e3" stroke-width="4"/>
+        <circle cx="400" cy="430" r="34" fill="#e3e3e3" opacity=".28"/>
+  </g>
+  <g fill="#3B2A31" opacity=".35" font-family="sans-serif" font-size="22" text-anchor="middle">
+    <text x="400" y="940">DORNELA</text>
+  </g>
+</svg>

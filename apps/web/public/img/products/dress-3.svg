@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 1000" width="800" height="1000" role="img">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FBECF2"/>
+      <stop offset="100%" stop-color="#FFFBF9"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="1000" fill="url(#bg)"/>
+  <circle cx="170" cy="200" r="120" fill="#ffffff" opacity=".45"/>
+  <circle cx="650" cy="820" r="90" fill="#ffffff" opacity=".35"/>
+  <g transform="translate(0,90) ">
+    
+        <path d="M340 240 L400 215 L460 240 L450 340 L400 355 L350 340 Z" fill="#d39caf"/>
+        <path d="M350 340 Q400 365 450 340 L560 650 Q400 710 240 650 Z" fill="#EFB8CB" opacity=".9"/>
+        <path d="M362 400 Q400 420 438 400 L520 640 Q400 680 280 640 Z" fill="#ffcee1" opacity=".7"/>
+        <circle cx="400" cy="350" r="16" fill="#ffcee1"/>
+        <path d="M320 560 Q400 600 480 560" stroke="#fff" stroke-width="4" fill="none" opacity=".6"/>
+  </g>
+  <g fill="#3B2A31" opacity=".35" font-family="sans-serif" font-size="22" text-anchor="middle">
+    <text x="400" y="940">DORNELA</text>
+  </g>
+</svg>

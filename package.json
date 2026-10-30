@@ -1,0 +1,16 @@
+{
+  "name": "dornela",
+  "version": "2.0.0",
+  "private": true,
+  "description": "فروشگاه اینترنتی پوشاک دخترانه درنلا — Next.js + NestJS + PostgreSQL",
+  "scripts": {
+    "db:up": "docker compose -f docker-compose.dev.yml up -d",
+    "db:down": "docker compose -f docker-compose.dev.yml down",
+    "setup:api": "cd apps/api && npm install && npx prisma migrate deploy && npm run build && npm run db:seed",
+    "setup:web": "cd apps/web && npm install",
+    "dev:api": "cd apps/api && npm run dev",
+    "dev:web": "cd apps/web && npm run dev",
+    "deploy": "bash deploy/init-ssl.sh",
+    "backup": "bash deploy/backup.sh"
+  }
+}

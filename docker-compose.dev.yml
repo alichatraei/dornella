@@ -1,0 +1,17 @@
+# فقط برای توسعه روی سیستم خودتان: یک PostgreSQL محلی
+#   docker compose -f docker-compose.dev.yml up -d
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: dornela
+      POSTGRES_PASSWORD: dornela
+      POSTGRES_DB: dornela
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - dornela_dev_pg:/var/lib/postgresql/data
+
+volumes:
+  dornela_dev_pg:

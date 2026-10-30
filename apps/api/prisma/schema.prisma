@@ -1,0 +1,340 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+/// NORMAL: پرداخت کامل همان لحظه — HOLD: سبد ۱۰ روزه با بیعانه
+enum OrderKind {
+  NORMAL
+  HOLD
+}
+
+enum OrderStatus {
+  AWAITING_DEPOSIT // سبد ۱۰ روزه ساخته شده، بیعانه هنوز پرداخت نشده
+  HOLDING          // بیعانه تأیید شده، سبد باز است و می‌شود کالا اضافه کرد
+  AWAITING_PAYMENT // در انتظار پرداخت کامل یا باقی‌مانده فاکتور
+  PAYMENT_REVIEW   // فیش کارت‌به‌کارت ثبت شده و منتظر بررسی است
+  PAID
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELED
+}
+
+enum PaymentPurpose {
+  DEPOSIT
+  BALANCE
+  FULL
+}
+
+enum PaymentMethod {
+  CARD
+  ZARINPAL
+}
+
+enum PaymentStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum DiscountType {
+  PERCENT
+  FIXED
+}
+
+enum ShippingScope {
+  ALL    // همه استان‌ها
+  ONLY   // فقط استان مشخص‌شده
+  EXCEPT // همه به‌جز استان مشخص‌شده
+}
+
+model User {
+  id           String    @id @default(cuid())
+  name         String?
+  phone        String    @unique
+  email        String?   @unique
+  passwordHash String?
+  role         Role      @default(USER)
+  isActive     Boolean   @default(true)
+  isClubMember Boolean   @default(true)
+  smsOptIn     Boolean   @default(true)
+  birthDate    String?
+  city         String?
+  tags         String[]  @default([])
+  adminNote    String?
+  source       String?   @default("site")
+  lastLoginAt  DateTime?
+  addresses    Address[]
+  orders       Order[]
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+}
+
+model OtpCode {
+  id        String   @id @default(cuid())
+  phone     String
+  codeHash  String
+  attempts  Int      @default(0)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([phone, createdAt])
+}
+
+model Address {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  receiverName String
+  phone        String
+  province     String
+  city         String
+  postalCode   String
+  line         String
+  isDefault    Boolean  @default(false)
+  createdAt    DateTime @default(now())
+
+  @@index([userId])
+}
+
+model Category {
+  id          String     @id @default(cuid())
+  name        String
+  slug        String     @unique
+  description String?
+  image       String?
+  isActive    Boolean    @default(true)
+  sortOrder   Int        @default(0)
+  products    Product[]
+  createdAt   DateTime   @default(now())
+}
+
+model Product {
+  id               String           @id @default(cuid())
+  title            String
+  slug             String           @unique
+  description      String
+  shortDescription String?
+  price            Int // تومان
+  compareAtPrice   Int?
+  costPrice        Int              @default(0)
+  categoryId       String?
+  category         Category?        @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  collection       String? // نام سری / کالکشن (مثلاً «سری پاییز ۱۴۰۵»)
+  material         String?
+  sizeGuide        String?
+  isActive         Boolean          @default(true)
+  isFeatured       Boolean          @default(false)
+  viewCount        Int              @default(0)
+  metaTitle        String?
+  metaDescription  String?
+  images           ProductImage[]
+  variants         ProductVariant[]
+  orderItems       OrderItem[]
+  festivals        Festival[]
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  @@index([categoryId])
+  @@index([collection])
+}
+
+model ProductImage {
+  id        String  @id @default(cuid())
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  url       String
+  alt       String?
+  position  Int     @default(0)
+
+  @@index([productId])
+}
+
+model ProductVariant {
+  id         String      @id @default(cuid())
+  productId  String
+  product    Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  size       String
+  color      String
+  colorHex   String?
+  stock      Int         @default(0)
+  sku        String?
+  orderItems OrderItem[]
+
+  @@index([productId])
+}
+
+/// جشنواره و حراج فصلی: تخفیف خودکار روی همه یا بخشی از محصولات
+model Festival {
+  id          String     @id @default(cuid())
+  title       String
+  slug        String     @unique
+  description String?
+  bannerText  String?
+  percent     Int
+  startsAt    DateTime
+  endsAt      DateTime
+  isActive    Boolean    @default(true)
+  allProducts Boolean    @default(true)
+  categoryIds String[]   @default([])
+  products    Product[]
+  createdAt   DateTime   @default(now())
+}
+
+model Coupon {
+  id           String       @id @default(cuid())
+  code         String       @unique
+  description  String?
+  type         DiscountType @default(PERCENT)
+  value        Int
+  maxDiscount  Int?
+  minOrder     Int?
+  startsAt     DateTime?
+  endsAt       DateTime?
+  usageLimit   Int?
+  perUserLimit Int?         @default(1)
+  usedCount    Int          @default(0)
+  isActive     Boolean      @default(true)
+  orders       Order[]
+  createdAt    DateTime     @default(now())
+}
+
+model ShippingMethod {
+  id          String        @id @default(cuid())
+  code        String        @unique
+  title       String
+  description String?
+  cost        Int
+  scope       ShippingScope @default(ALL)
+  province    String?
+  isActive    Boolean       @default(true)
+  sortOrder   Int           @default(0)
+}
+
+model Order {
+  id                String          @id @default(cuid())
+  orderNumber       String          @unique
+  kind              OrderKind       @default(NORMAL)
+  userId            String
+  user              User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status            OrderStatus
+  subtotal          Int // جمع قیمت کالاها بعد از تخفیف جشنواره
+  festivalDiscount  Int             @default(0)
+  couponDiscount    Int             @default(0)
+  shippingCost      Int             @default(0)
+  total             Int
+  depositAmount     Int             @default(0)
+  paidAmount        Int             @default(0)
+  holdUntil         DateTime?
+  holdClosedAt      DateTime?
+  reminderSentAt    DateTime?
+  couponId          String?
+  coupon            Coupon?         @relation(fields: [couponId], references: [id], onDelete: SetNull)
+  couponCode        String?
+  shippingCode      String?
+  shippingTitle     String?
+  receiverName      String
+  receiverPhone     String
+  province          String
+  city              String
+  postalCode        String
+  addressLine       String
+  note              String?
+  trackingNumber    String?
+  adminNote         String?
+  items             OrderItem[]
+  payments          Payment[]
+  paidAt            DateTime?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  @@index([userId])
+  @@index([status])
+}
+
+model OrderItem {
+  id          String          @id @default(cuid())
+  orderId     String
+  order       Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId   String?
+  product     Product?        @relation(fields: [productId], references: [id], onDelete: SetNull)
+  variantId   String?
+  variant     ProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
+  title       String
+  slug        String?
+  image       String?
+  size        String?
+  color       String?
+  basePrice   Int // قیمت اصلی محصول
+  unitPrice   Int // قیمت بعد از تخفیف جشنواره
+  unitCost    Int             @default(0)
+  quantity    Int
+  addedAt     DateTime        @default(now())
+
+  @@index([orderId])
+}
+
+model Payment {
+  id           String         @id @default(cuid())
+  orderId      String
+  order        Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  purpose      PaymentPurpose
+  method       PaymentMethod
+  amount       Int
+  status       PaymentStatus  @default(PENDING)
+  imageUrl     String?
+  payerName    String?
+  trackingCode String?
+  authority    String?        @unique
+  refId        String?
+  cardPan      String?
+  adminNote    String?
+  paidAt       DateTime?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  @@index([orderId])
+}
+
+model SmsCampaign {
+  id         String   @id @default(cuid())
+  title      String
+  message    String
+  audience   Json
+  recipients Int      @default(0)
+  sent       Int      @default(0)
+  failed     Int      @default(0)
+  status     String   @default("QUEUED")
+  error      String?
+  createdAt  DateTime @default(now())
+  finishedAt DateTime?
+}
+
+model SmsLog {
+  id        String   @id @default(cuid())
+  phone     String
+  kind      String
+  message   String
+  ok        Boolean
+  error     String?
+  createdAt DateTime @default(now())
+
+  @@index([phone])
+}
+
+model Setting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}

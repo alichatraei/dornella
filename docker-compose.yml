@@ -1,0 +1,112 @@
+# راه‌اندازی کامل درنلا روی سرور:  پایگاه داده + API + سایت + nginx + گواهی SSL
+# راهنما: deploy/README.md
+
+name: dornela
+
+x-logging: &logging
+  driver: json-file
+  options: { max-size: "10m", max-file: "3" }
+
+services:
+  db:
+    image: ${IMAGE_PREFIX:-}postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: dornela
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD را در .env بگذارید}
+      POSTGRES_DB: dornela
+      TZ: Asia/Tehran
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dornela -d dornela"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    logging: *logging
+
+  api:
+    build:
+      context: ./apps/api
+      args:
+        NPM_REGISTRY: ${NPM_REGISTRY:-https://registry.npmjs.org/}
+        NODE_IMAGE: ${IMAGE_PREFIX:-}node:20-alpine
+        ALPINE_MIRROR: ${ALPINE_MIRROR:-}
+    restart: unless-stopped
+    depends_on:
+      db: { condition: service_healthy }
+    environment:
+      DATABASE_URL: postgresql://dornela:${POSTGRES_PASSWORD}@db:5432/dornela?schema=public
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET را در .env بگذارید}
+      JWT_EXPIRES_IN: 30d
+      PORT: 4000
+      TZ: Asia/Tehran
+      WEB_ORIGIN: https://${DOMAIN},https://www.${DOMAIN}
+      SITE_URL: https://${DOMAIN}
+      PUBLIC_URL: https://${DOMAIN}
+      ADMIN_PHONE: ${ADMIN_PHONE:-09135459772}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@dornela.ir}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?ADMIN_PASSWORD را در .env بگذارید}
+      ADMIN_RESET_PASSWORD: ${ADMIN_RESET_PASSWORD:-false}
+      SMS_PROVIDER: ${SMS_PROVIDER:-console}
+      SMS_API_KEY: ${SMS_API_KEY:-}
+      SMS_SENDER: ${SMS_SENDER:-}
+      SMS_OTP_TEMPLATE: ${SMS_OTP_TEMPLATE:-}
+      ZARINPAL_MERCHANT_ID: ${ZARINPAL_MERCHANT_ID:-}
+      ZARINPAL_SANDBOX: ${ZARINPAL_SANDBOX:-false}
+    volumes:
+      - uploads:/app/uploads
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:4000/api/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    logging: *logging
+
+  web:
+    build:
+      context: ./apps/web
+      args:
+        NPM_REGISTRY: ${NPM_REGISTRY:-https://registry.npmjs.org/}
+        NODE_IMAGE: ${IMAGE_PREFIX:-}node:20-alpine
+        ALPINE_MIRROR: ${ALPINE_MIRROR:-}
+        NEXT_PUBLIC_SITE_URL: https://${DOMAIN}
+    restart: unless-stopped
+    depends_on:
+      api: { condition: service_healthy }
+    environment:
+      API_INTERNAL_URL: http://api:4000
+      TZ: Asia/Tehran
+    logging: *logging
+
+  nginx:
+    image: ${IMAGE_PREFIX:-}nginx:1.27-alpine
+    restart: unless-stopped
+    depends_on: [web, api]
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN:?DOMAIN را در .env بگذارید}
+    volumes:
+      - ./deploy/nginx/templates:/etc/nginx/templates:ro
+      - ./deploy/nginx/reload-loop.sh:/docker-entrypoint.d/99-reload-loop.sh:ro
+      - ./deploy/certbot/conf:/etc/letsencrypt:ro
+      - ./deploy/certbot/www:/var/www/certbot:ro
+      - uploads:/srv/uploads:ro
+    logging: *logging
+
+  certbot:
+    image: ${IMAGE_PREFIX:-}certbot/certbot:v3.0.1
+    restart: unless-stopped
+    volumes:
+      - ./deploy/certbot/conf:/etc/letsencrypt
+      - ./deploy/certbot/www:/var/www/certbot
+    # هر ۱۲ ساعت تمدید را چک می‌کند؛ nginx هم هر ۶ ساعت گواهی جدید را می‌خواند
+    entrypoint: /bin/sh -c 'trap exit TERM; while :; do certbot renew --webroot -w /var/www/certbot --quiet; sleep 12h & wait $${!}; done'
+    logging: *logging
+
+volumes:
+  pgdata:
+  uploads:
