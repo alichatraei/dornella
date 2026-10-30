@@ -69,31 +69,48 @@ bash deploy/init-ssl.sh --force
 
 راه دیگر: دامنه را پشت CDN ابر آروان ببرید و SSL خود آروان را روشن کنید.
 
-### اگر پورت ۸۰ یا ۴۴۳ را سرویس دیگری گرفته
+### اگر روی سرور از قبل nginx روی پورت ۸۰ و ۴۴۳ هست
 
-خطای `address already in use` یعنی همین. ببینید کدام سرویس است:
+در این حالت nginx سرور جلو می‌ماند و فقط این دامنه را به داکر می‌فرستد. سایت‌های دیگر سرور دست نمی‌خورند.
+
+۱. در `.env` بگذارید (پورت‌ها فقط از داخل خود سرور در دسترس‌اند و `SITE_ORIGIN` لازم نیست):
+
+```
+HTTP_PORT=127.0.0.1:8080
+HTTPS_PORT=127.0.0.1:8443
+```
+
+۲. با root بخش HTTP را از فایل نمونه فعال کنید. `DOMAIN` را عوض کنید:
 
 ```bash
-ss -ltnp | grep -E ':(80|443) '
+sed 's/DOMAIN_HERE/DOMAIN/g' /home/dornela/deploy/nginx/host-http.conf.example > /etc/nginx/conf.d/dornela.conf
 ```
 
-در `.env` این‌ها را اضافه کنید (دامنه خودتان):
-
-```
-HTTP_PORT=8080
-HTTPS_PORT=8443
-SITE_ORIGIN=https://DOMAIN:8443
+```bash
+nginx -t && systemctl reload nginx
 ```
 
-سایت روی `https://DOMAIN:8443` بالا می‌آید. Let's Encrypt فقط پورت ۸۰ را چک می‌کند، پس سرویس فعلی پورت ۸۰ باید درخواست‌های گواهی را جلو بفرستد. اگر آن سرویس nginx است، این را به `server` دامنه روی پورت ۸۰ اضافه کنید و آن را reload کنید، بعد `init-ssl.sh` را بزنید:
+۳. با کاربر dornela گواهی بگیرید و سایت را بالا بیاورید:
 
-```
-location /.well-known/acme-challenge/ {
-    proxy_pass http://127.0.0.1:8080;
-}
+```bash
+bash /home/dornela/deploy/init-ssl.sh
 ```
 
-برای آدرس بدون شماره پورت، همان سرویس باید کل دامنه را روی پورت‌های ۸۰ و ۴۴۳ به `127.0.0.1:8443` پروکسی کند؛ در این حالت `SITE_ORIGIN` را بدون پورت بگذارید.
+۴. با root بخش HTTPS را هم اضافه کنید. فقط بعد از گرفتن موفق گواهی:
+
+```bash
+sed 's/DOMAIN_HERE/DOMAIN/g' /home/dornela/deploy/nginx/host-https.conf.example >> /etc/nginx/conf.d/dornela.conf
+```
+
+```bash
+nginx -t && systemctl reload nginx
+```
+
+۵. nginx سرور گواهی تمدیدشده را خودش نمی‌خواند. با `crontab -e` کاربر root این خط را اضافه کنید:
+
+```
+0 4 * * * /usr/sbin/nginx -s reload
+```
 
 ## ۵. فعال کردن دیپلوی خودکار (یک بار، از سیستم خودتان)
 

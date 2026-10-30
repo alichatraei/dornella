@@ -1,0 +1,15 @@
+# nginx خود سرور، پورت ۸۰: درخواست‌های گواهی به داکر می‌رود و بقیه به HTTPS
+server {
+    listen 80;
+    listen [::]:80;
+    server_name DOMAIN_HERE www.DOMAIN_HERE;
+
+    location /.well-known/acme-challenge/ {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_set_header Host $host;
+    }
+
+    location / {
+        return 301 https://DOMAIN_HERE$request_uri;
+    }
+}
