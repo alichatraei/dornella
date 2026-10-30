@@ -41,9 +41,9 @@ services:
       JWT_EXPIRES_IN: 30d
       PORT: 4000
       TZ: Asia/Tehran
-      WEB_ORIGIN: https://${DOMAIN},https://www.${DOMAIN}
-      SITE_URL: https://${DOMAIN}
-      PUBLIC_URL: https://${DOMAIN}
+      WEB_ORIGIN: ${SITE_ORIGIN:-https://${DOMAIN}},https://www.${DOMAIN}
+      SITE_URL: ${SITE_ORIGIN:-https://${DOMAIN}}
+      PUBLIC_URL: ${SITE_ORIGIN:-https://${DOMAIN}}
       ADMIN_PHONE: ${ADMIN_PHONE:-09135459772}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@dornela.ir}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:?ADMIN_PASSWORD را در .env بگذارید}
@@ -71,7 +71,7 @@ services:
         NPM_REGISTRY: ${NPM_REGISTRY:-https://registry.npmjs.org/}
         NODE_IMAGE: ${IMAGE_PREFIX:-}node:20-alpine
         ALPINE_MIRROR: ${ALPINE_MIRROR:-}
-        NEXT_PUBLIC_SITE_URL: https://${DOMAIN}
+        NEXT_PUBLIC_SITE_URL: ${SITE_ORIGIN:-https://${DOMAIN}}
     restart: unless-stopped
     depends_on:
       api: { condition: service_healthy }
@@ -85,10 +85,11 @@ services:
     restart: unless-stopped
     depends_on: [web, api]
     ports:
-      - "80:80"
-      - "443:443"
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
     environment:
       DOMAIN: ${DOMAIN:?DOMAIN را در .env بگذارید}
+      SITE_ORIGIN: ${SITE_ORIGIN:-https://${DOMAIN}}
     volumes:
       - ./deploy/nginx/templates:/etc/nginx/templates:ro
       - ./deploy/nginx/reload-loop.sh:/docker-entrypoint.d/99-reload-loop.sh:ro

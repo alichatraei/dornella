@@ -22,6 +22,11 @@ fi
 
 mkdir -p deploy/certbot/conf deploy/certbot/www
 
+if [ "${HTTP_PORT:-80}" != "80" ]; then
+  echo "توجه: Let's Encrypt فقط پورت ۸۰ را چک می‌کند. سرویسی که الان روی پورت ۸۰ است باید مسیر"
+  echo "/.well-known/acme-challenge/ را به پورت ${HTTP_PORT} بفرستد، وگرنه گرفتن گواهی خطا می‌دهد (deploy/README.md)."
+fi
+
 make_dummy() {
   echo "▸ ساخت گواهی موقت تا nginx بتواند بالا بیاید…"
   docker compose run --rm --no-deps --entrypoint /bin/sh certbot -c "
